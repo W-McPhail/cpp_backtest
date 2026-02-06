@@ -1,0 +1,14 @@
+Backtest Report
+================
+
+Strategy: ctm (long=9/21 short=9/333)
+
+Initial equity:  100000.00
+Final equity:   100000.00
+Total return:   0.00%
+Max drawdown:   0.00%
+Sharpe ratio:   0.000
+Closed trades:  0
+Winning trades: 0
+Win rate:       0.00%
+Avg trade P&L:  0.00
