@@ -64,6 +64,22 @@ void run_simulator_commission() {
     ASSERT_NEAR(sim.trades()[0].pnl, (105 - 100) * 5 - 1.0, 1e-6);  // 25 - 1 commission (charged on close in trade record)
 }
 
+//--- Simulator: slippage applied (long fills higher, short fills lower)
+void run_simulator_slippage() {
+    const double slip = 0.01;  // 1%
+    Simulator sim(10000.0, 0.0, slip);
+    Bar bar1; bar1.timestamp = "2024-01-01T10:00"; bar1.open = 100; bar1.close = 100;
+    Bar bar2; bar2.timestamp = "2024-01-01T10:15"; bar2.open = 102; bar2.close = 102;
+    sim.placeOrder(Side::Long, 10);
+    sim.processOrders(bar1);  // fill at 100 * 1.01 = 101
+    sim.placeOrder(Side::Short, 10);
+    sim.processOrders(bar2);  // fill at 102 * 0.99 = 100.98
+    ASSERT_EQ(sim.trades().size(), 1u);
+    ASSERT_NEAR(sim.trades()[0].entry_price, 101.0, 1e-6);
+    ASSERT_NEAR(sim.trades()[0].exit_price, 100.98, 1e-6);
+    ASSERT_NEAR(sim.trades()[0].pnl, (100.98 - 101.0) * 10, 1e-6);  // -0.20
+}
+
 //--- DataSource: load from CSV string (temp file)
 void run_data_source_csv_load() {
     std::string csv = "timestamp,open,high,low,close\n"
@@ -111,6 +127,7 @@ void run_data_source_aggregate_15m() {
 void run_all_tests() {
     std::cerr << "  simulator_long_trade ... "; run_simulator_long_trade(); std::cerr << "ok\n";
     std::cerr << "  simulator_commission ... "; run_simulator_commission(); std::cerr << "ok\n";
+    std::cerr << "  simulator_slippage ... "; run_simulator_slippage(); std::cerr << "ok\n";
     std::cerr << "  data_source_csv_load ... "; run_data_source_csv_load(); std::cerr << "ok\n";
     std::cerr << "  data_source_aggregate_15m ... "; run_data_source_aggregate_15m(); std::cerr << "ok\n";
 }

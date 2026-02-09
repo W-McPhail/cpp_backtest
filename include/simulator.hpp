@@ -23,11 +23,12 @@ struct Trade {
 /// Simulates order execution and tracks positions, cash, and equity.
 /// Orders placed during bar N are filled at bar N+1 open (avoids look-ahead).
 /// At most one order can be pending at a time: placing a new order overwrites any previous pending order for the next bar.
+/// Slippage: fraction of fill price (e.g. 0.001 = 0.1%). Longs fill at open*(1+slippage), shorts at open*(1-slippage).
 class Simulator {
 public:
-    Simulator(double initial_cash = 100000.0, double commission_per_trade = 0.0);
+    Simulator(double initial_cash = 100000.0, double commission_per_trade = 0.0, double slippage_fraction = 0.0);
 
-    /// Process pending order: fill at current bar's open.
+    /// Process pending order: fill at current bar's open (with slippage applied).
     void processOrders(const Bar& bar);
 
     /// Add order to be filled on next bar. Overwrites any existing pending order.
@@ -49,6 +50,7 @@ public:
 private:
     double initial_cash_;
     double commission_;
+    double slippage_;  // fraction, e.g. 0.001 = 0.1%
     double cash_;
     double position_;       // signed: + long, - short
     double avg_entry_;      // average entry price for P&L

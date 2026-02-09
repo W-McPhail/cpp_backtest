@@ -37,13 +37,15 @@ public:
     /// If databento_dir non-empty, load from that folder (filename = bar data); else load from data_path CSV.
     /// symbol_filter: when using databento, load only this symbol (e.g. "NQU5"); empty = all.
     /// bar_resolution: "1m" (default), "15m", or "1h" — aggregate 1m bars to that timeframe before backtest.
+    /// slippage: fraction of fill price (e.g. 0.001 = 0.1%); longs fill worse (higher), shorts worse (lower).
     Backtester(std::unique_ptr<IStrategy> strategy,
               const std::string& data_path,
               double initial_cash = 100000.0,
               double commission = 0.0,
               const std::string& databento_dir = "",
               const std::string& symbol_filter = "",
-              const std::string& bar_resolution = "1m");
+              const std::string& bar_resolution = "1m",
+              double slippage = 0.0);
 
     /// Run the backtest. Returns false if data failed to load.
     /// If equity <= 0 or max drawdown >= 100%, stops early and sets stoppedEarly() / stopReason().

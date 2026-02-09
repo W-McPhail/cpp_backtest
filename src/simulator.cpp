@@ -8,9 +8,10 @@ namespace {
     constexpr double POSITION_ZERO_EPS = 1e-9;
 }
 
-Simulator::Simulator(double initial_cash, double commission_per_trade)
+Simulator::Simulator(double initial_cash, double commission_per_trade, double slippage_fraction)
     : initial_cash_(initial_cash)
     , commission_(commission_per_trade)
+    , slippage_(slippage_fraction >= 0 ? slippage_fraction : 0)
     , cash_(initial_cash)
     , position_(0)
     , avg_entry_(0)
@@ -31,6 +32,12 @@ void Simulator::processOrders(const Bar& bar) {
     if (!has_pending_) return;
 
     double fill_price = bar.open;  // fill at bar open (no look-ahead)
+    if (slippage_ > 0) {
+        if (pending_order_.side == Side::Long)
+            fill_price *= (1.0 + slippage_);
+        else
+            fill_price *= (1.0 - slippage_);
+    }
     double qty = pending_order_.quantity;
     Side side = pending_order_.side;
 

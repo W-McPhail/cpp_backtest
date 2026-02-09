@@ -25,14 +25,15 @@ Backtester::Backtester(std::unique_ptr<IStrategy> strategy,
                        double commission,
                        const std::string& databento_dir,
                        const std::string& symbol_filter,
-                       const std::string& bar_resolution)
+                       const std::string& bar_resolution,
+                       double slippage)
     : strategy_(std::move(strategy))
     , data_(data_path)
     , initial_cash_(initial_cash)
     , databento_dir_(databento_dir)
     , symbol_filter_(symbol_filter)
     , bar_resolution_(bar_resolution.empty() ? "1m" : bar_resolution)
-    , sim_(std::make_unique<Simulator>(initial_cash, commission))
+    , sim_(std::make_unique<Simulator>(initial_cash, commission, slippage))
 {
 }
 

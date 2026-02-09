@@ -110,6 +110,7 @@ Reports are written to `reports/` (trades.csv, equity_curve.csv, report.txt). De
 | `--bar <res>` | Bar resolution: `1m`, `15m`, `1h` (aggregate from 1m). Shortcuts: `-15m`, `-1h`. |
 | `--cash <n>` | Initial cash. |
 | `--commission <n>` | Commission per trade. |
+| `--slippage <fraction>` | Slippage as fraction of fill price (e.g. 0.001 = 0.1%). Longs fill at open×(1+slippage), shorts at open×(1−slippage). |
 | `--reports-dir <dir>` | Output directory for reports. |
 | `--fast`, `--slow` | SMA periods (sma_crossover / ctm). |
 | `--size <0..1>` | Position size as fraction of equity (e.g. 0.15 = 15%). ORB default 15% if not set. |

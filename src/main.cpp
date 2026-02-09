@@ -37,6 +37,7 @@ struct Config {
     std::string reports_dir = "reports";
     double initial_cash = 100000.0;
     double commission = 0.0;
+    double slippage = 0.0;  // fraction of fill price, e.g. 0.001 = 0.1%
     std::string bar_resolution = "1m";
 
     // Strategy params (shared / repurposed by strategy)
@@ -84,6 +85,7 @@ bool parseArgs(int argc, char* argv[], Config& cfg, std::string& error_msg) {
         else if (arg == "--reports-dir") { if (next()) cfg.reports_dir = argv[i]; }
         else if (arg == "--cash") { if (!next() || !parseDouble(argv[i], cfg.initial_cash, error_msg, "--cash")) return false; }
         else if (arg == "--commission") { if (!next() || !parseDouble(argv[i], cfg.commission, error_msg, "--commission")) return false; }
+        else if (arg == "--slippage") { if (!next() || !parseDouble(argv[i], cfg.slippage, error_msg, "--slippage")) return false; }
         else if (arg == "--fast") { if (!next() || !parseInt(argv[i], cfg.sma_fast, error_msg, "--fast")) return false; }
         else if (arg == "--slow") { if (!next() || !parseInt(argv[i], cfg.sma_slow, error_msg, "--slow")) return false; }
         else if (arg == "--size") { if (!next() || !parseDouble(argv[i], cfg.sma_size, error_msg, "--size")) return false; }
@@ -105,6 +107,7 @@ bool parseArgs(int argc, char* argv[], Config& cfg, std::string& error_msg) {
 bool validateConfig(const Config& cfg, std::string& error_msg) {
     if (cfg.initial_cash < 0) { error_msg = "initial cash (--cash) must be >= 0"; return false; }
     if (cfg.commission < 0) { error_msg = "commission (--commission) must be >= 0"; return false; }
+    if (cfg.slippage < 0 || cfg.slippage >= 1) { error_msg = "slippage (--slippage) must be in [0, 1) (e.g. 0.001 = 0.1%)"; return false; }
     if (cfg.sma_fast < 1) { error_msg = "--fast must be >= 1"; return false; }
     if (cfg.sma_slow < 1) { error_msg = "--slow must be >= 1"; return false; }
     if (cfg.sma_size < 0 || cfg.sma_size > 10) { error_msg = "--size must be between 0 and 10 (fraction of equity)"; return false; }
@@ -164,7 +167,7 @@ int runSingle(const Config& cfg,
     using namespace backtest;
     std::string data_path = cfg.databento_dir.empty() ? cfg.data_path : "";
     Backtester bt(std::move(strategy), data_path, cfg.initial_cash, cfg.commission,
-                  cfg.databento_dir, cfg.symbol_filter, cfg.bar_resolution);
+                  cfg.databento_dir, cfg.symbol_filter, cfg.bar_resolution, cfg.slippage);
 
     if (!bt.run()) {
         if (!cfg.databento_dir.empty())
@@ -210,7 +213,7 @@ int runAllSymbols(const Config& cfg, const std::string& strategy_params) {
     for (const std::string& sym : symbols) {
         auto [sym_strategy, params] = createStrategy(cfg);
         Backtester bt(std::move(sym_strategy), "", cfg.initial_cash, cfg.commission,
-                      cfg.databento_dir, sym, cfg.bar_resolution);
+                      cfg.databento_dir, sym, cfg.bar_resolution, cfg.slippage);
 
         if (!bt.run() || bt.data().empty()) {
             std::cerr << "Skipped " << sym << ": no bars or load failed\n";
