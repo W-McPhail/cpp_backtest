@@ -80,6 +80,7 @@ Run tests after building:
 | **sma_crossover** | Moving-average crossover (default fast=9, slow=21). Use `--fast`, `--slow`, `--size` (position size as fraction of equity). |
 | **ctm**        | CTM-style trend (long/short SMAs). Optional Kalman trend filter: `--ctm-kalman`, `--ctm-kalman-long`, `--ctm-kalman-short`. |
 | **orb**        | Opening range breakout: first bar at session = range, next bar = trigger; stop at ORB high/low. 15% equity per day, EOD exit. Session time in UTC: `--orb-session-hour`, `--orb-session-minute`. Position size: `--size 0.2` for 20%. |
+| **one_point_oh** | Lines of best fit on highs/lows. Long when close breaks above a *descending* line (highs); short when close breaks below an *ascending* line (lows). Stop at nearest local low (long) or high (short); exit at 3:1 R:R. Use `--fast` (lookback), `--slow` (stop lookback), `--size` (position fraction). |
 
 ## Run
 
@@ -93,18 +94,25 @@ Run tests after building:
 **Single-symbol (Databento folder):**
 ```bash
 ./backtester --databento-dir path/to/glbx --symbol NQU5 --strategy ctm --bar 15m --ctm-kalman
+./backtester --databento-dir path/to/glbx --symbol NQU5 --strategy one_point_oh --bar 15m --fast 20 --slow 20 --size 0.15
 ```
+
+**OnePointOh (always use Databento dir + symbol + bar):**
+```bash
+./backtester --databento-dir "..\Databento\glbx-mdp3-20250804-20260203.ohlcv-1m.csv" --symbol NQU5 --strategy one_point_oh --bar 15m --fast 20 --slow 20 --size 0.15
+```
+From `build/`: same path; from project root use `--databento-dir "Databento/glbx-mdp3-..."` and omit `..\`.
 
 **All symbols in a Databento dir:** omit `--symbol` to run one account per symbol and print a combined table.
 
-Reports are written to `reports/` (trades.csv, equity_curve.csv, report.txt). Default dir: `reports`; override with `--reports-dir`.
+Reports are written to `reports/` (trades.csv, equity_curve.csv, report.txt, **session.json**). Default dir: `reports`; override with `--reports-dir`.
 
 ### CLI options
 
 | Option | Description |
 |--------|-------------|
 | `--data <path>` | CSV file path (default: data/sample_ohlc.csv). |
-| `--strategy <name>` | Strategy: `sma_crossover`, `ctm`, `orb`. |
+| `--strategy <name>` | Strategy: `sma_crossover`, `ctm`, `orb`, `one_point_oh`. |
 | `--databento-dir <dir>` | Load OHLC from Databento-style filenames in this directory. |
 | `--symbol <sym>` | Filter to one symbol when using `--databento-dir`. Empty = run all symbols. |
 | `--bar <res>` | Bar resolution: `1m`, `15m`, `1h` (aggregate from 1m). Shortcuts: `-15m`, `-1h`. |
@@ -138,7 +146,30 @@ timestamp,open,high,low,close,volume
 After the backtest, the engine produces:
 
 - **Console**: Summary (total return %, max drawdown %, number of trades, win rate).
-- **Files** (in `reports/`): Trade log (CSV), equity curve (CSV), and a text/JSON summary of metrics.
+- **Files** (in `reports/`): Trade log (CSV), equity curve (CSV), text report, and **session.json** (bars + trades for the chart viewer).
+
+### Chart viewer (price action + entries/exits)
+
+Single-symbol runs write **session.json** (OHLC bars and trade list). To view and scroll through price action with algorithm entries and exits:
+
+1. **Run a single-symbol backtest** (from `build/` after building). Example with Databento (always use `--databento-dir`, `--symbol`, `--bar`):
+   ```bash
+   .\backtester.exe --databento-dir "..\Databento\glbx-mdp3-20250804-20260203.ohlcv-1m.csv" --symbol NQU5 --strategy one_point_oh --bar 15m --fast 20 --slow 20 --size 0.15
+   ```
+   Other strategies (ORB, CTM):
+   ```bash
+   .\backtester.exe --databento-dir "..\Databento\glbx-mdp3-20250804-20260203.ohlcv-1m.csv" --symbol NQU5 --strategy orb --bar 15m
+   ```
+   CSV (no Databento):
+   ```bash
+   .\backtester.exe --data "..\data\sample_ohlc.csv" --strategy orb
+   ```
+
+2. **Open the viewer** in your browser: double-click **viewer/viewer.html** (or open it from File Explorer: project folder → `viewer` → `viewer.html`).
+
+3. **Load the session**: click **"Load session.json"** and choose **build/reports/session.json** (if you ran from `build/`) or **reports/session.json** (if you ran from project root).
+
+4. **Use the chart**: drag to scroll through time, mouse wheel to zoom. Green ↑ = long entry, red ↓ = short entry, gray circles = exits (with P&L in the label).
 
 ## Adding your own strategy
 

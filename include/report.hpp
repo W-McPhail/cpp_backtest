@@ -50,6 +50,10 @@ public:
     /// Write full report to a text file. Returns false and logs to stderr on failure.
     bool writeReport(const std::string& filepath) const;
 
+    /// Write bars + trades as JSON for the chart viewer (session.json). Returns false on failure.
+    bool writeSessionJson(const std::string& filepath,
+                          const std::string& symbol_or_label = "") const;
+
     void setMetrics(const BacktestMetrics& m) { metrics_ = m; }
     const BacktestMetrics& metrics() const { return metrics_; }
 

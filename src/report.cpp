@@ -116,6 +116,18 @@ namespace {
         }
         out << '"';
     }
+
+    void writeJsonString(std::ostream& out, const std::string& s) {
+        out << '"';
+        for (char c : s) {
+            if (c == '"') out << "\\\"";
+            else if (c == '\\') out << "\\\\";
+            else if (c == '\n') out << "\\n";
+            else if (c == '\r') out << "\\r";
+            else out << c;
+        }
+        out << '"';
+    }
 }
 
 bool Report::writeTradeLog(const std::string& filepath) const {
@@ -200,6 +212,53 @@ bool Report::writeReport(const std::string& filepath) const {
         f << "Unrealized P&L:  " << metrics_.unrealized_pnl << "\n";
     }
     return f ? true : (std::cerr << "Failed to write report: " << filepath << "\n", false);
+}
+
+bool Report::writeSessionJson(const std::string& filepath, const std::string& symbol_or_label) const {
+    std::ofstream f(filepath);
+    if (!f) {
+        std::cerr << "Failed to open for writing: " << filepath << "\n";
+        return false;
+    }
+    f << std::fixed << std::setprecision(4);
+    f << "{\n  \"symbol\": ";
+    writeJsonString(f, symbol_or_label.empty() ? "backtest" : symbol_or_label);
+    f << ",\n  \"strategy\": ";
+    writeJsonString(f, strategy_name_);
+    f << ",\n  \"params\": ";
+    writeJsonString(f, strategy_params_);
+    f << ",\n  \"bars\": [\n";
+    const auto& bars = data_.bars();
+    for (std::size_t i = 0; i < bars.size(); ++i) {
+        const auto& b = bars[i];
+        f << "    {\"t\":";
+        writeJsonString(f, b.timestamp);
+        f << ",\"o\":" << b.open << ",\"h\":" << b.high << ",\"l\":" << b.low << ",\"c\":" << b.close;
+        if (b.volume != 0) f << ",\"v\":" << b.volume;
+        f << "}";
+        if (i + 1 < bars.size()) f << ",";
+        f << "\n";
+    }
+    f << "  ],\n  \"trades\": [\n";
+    const auto& trades = sim_.trades();
+    for (std::size_t i = 0; i < trades.size(); ++i) {
+        const auto& t = trades[i];
+        f << "    {\"entry_time\":";
+        writeJsonString(f, t.entry_time);
+        f << ",\"exit_time\":";
+        writeJsonString(f, t.exit_time);
+        f << ",\"side\":\"" << (t.side == Side::Long ? "long" : "short") << "\""
+          << ",\"entry_price\":" << t.entry_price << ",\"exit_price\":" << t.exit_price
+          << ",\"quantity\":" << t.quantity << ",\"pnl\":" << t.pnl << "}";
+        if (i + 1 < trades.size()) f << ",";
+        f << "\n";
+    }
+    f << "  ]\n}\n";
+    if (!f) {
+        std::cerr << "Failed to write session JSON: " << filepath << "\n";
+        return false;
+    }
+    return true;
 }
 
 } // namespace backtest

@@ -15,6 +15,7 @@ add_executable(backtester
   strategies/example_sma_strategy.cpp
   strategies/ctm_strategy_simple.cpp
   strategies/orb_strategy.cpp
+  strategies/one_point_oh_strategy.cpp
 )
 target_include_directories(backtester PRIVATE
   ${BACKTEST_INCLUDE_DIR}

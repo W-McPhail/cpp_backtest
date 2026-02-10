@@ -3,6 +3,7 @@
 #include "example_sma_strategy.hpp"
 #include "ctm_strategy_simple.hpp"
 #include "orb_strategy.hpp"
+#include "one_point_oh_strategy.hpp"
 #include "data_source.hpp"
 #include <iostream>
 #include <fstream>
@@ -48,6 +49,7 @@ struct Config {
     bool ctm_kalman_short = false;
     int orb_session_hour = 9;
     int orb_session_minute = 30;
+    double one_point_oh_risk_reward = 3.0;  // R:R ratio (e.g. 1.3 = 1:1.3, 1.755 = 1:1.755)
 };
 
 // Safe parse: on failure set error_msg and return false.
@@ -99,6 +101,7 @@ bool parseArgs(int argc, char* argv[], Config& cfg, std::string& error_msg) {
         else if (arg == "--ctm-kalman") { cfg.ctm_kalman_long = cfg.ctm_kalman_short = true; }
         else if (arg == "--orb-session-hour") { if (!next() || !parseInt(argv[i], cfg.orb_session_hour, error_msg, "--orb-session-hour")) return false; }
         else if (arg == "--orb-session-minute") { if (!next() || !parseInt(argv[i], cfg.orb_session_minute, error_msg, "--orb-session-minute")) return false; }
+        else if (arg == "--risk-reward" || arg == "--rr") { if (!next() || !parseDouble(argv[i], cfg.one_point_oh_risk_reward, error_msg, arg.c_str())) return false; }
     }
     return true;
 }
@@ -113,6 +116,7 @@ bool validateConfig(const Config& cfg, std::string& error_msg) {
     if (cfg.sma_size < 0 || cfg.sma_size > 10) { error_msg = "--size must be between 0 and 10 (fraction of equity)"; return false; }
     if (cfg.orb_session_hour < 0 || cfg.orb_session_hour > 23) { error_msg = "--orb-session-hour must be 0-23"; return false; }
     if (cfg.orb_session_minute < 0 || cfg.orb_session_minute > 59) { error_msg = "--orb-session-minute must be 0-59"; return false; }
+    if (cfg.one_point_oh_risk_reward <= 0 || cfg.one_point_oh_risk_reward > 100) { error_msg = "--risk-reward must be > 0 and <= 100 (e.g. 1.3 for 1:1.3)"; return false; }
     return true;
 }
 
@@ -147,6 +151,15 @@ std::pair<std::unique_ptr<backtest::IStrategy>, std::string> createStrategy(cons
         orb.session_start_minute = cfg.orb_session_minute;
         strat = createOrbStrategy(orb);
         params = "session=" + std::to_string(orb.session_start_hour) + ":" + std::to_string(orb.session_start_minute) + " " + std::to_string(static_cast<int>(orb.position_equity_pct * 100)) + "% equity EOD exit";
+    } else if (cfg.strategy_name == "one_point_oh") {
+        OnePointOhParams op;
+        op.lookback = cfg.sma_fast;
+        op.stop_lookback = cfg.sma_slow;
+        op.position_fraction = (cfg.sma_size >= 0.01 && cfg.sma_size <= 1.0) ? cfg.sma_size : 0.15;
+        op.risk_reward_ratio = cfg.one_point_oh_risk_reward;
+        strat = createOnePointOhStrategy(op);
+        params = "lookback=" + std::to_string(op.lookback) + " stop_lookback=" + std::to_string(op.stop_lookback)
+            + " 1:" + std::to_string(op.risk_reward_ratio) + " R:R";
     }
 
     return { std::move(strat), params };
@@ -155,6 +168,7 @@ std::pair<std::unique_ptr<backtest::IStrategy>, std::string> createStrategy(cons
 std::size_t minBarsForStrategy(const std::string& name) {
     if (name == "ctm") return MIN_BARS_CTM;
     if (name == "orb") return MIN_BARS_ORB;
+    if (name == "one_point_oh") return 40u;  // lookback + stop_lookback
     return MIN_BARS_SMA;
 }
 
@@ -187,6 +201,8 @@ int runSingle(const Config& cfg,
     report.writeTradeLog((fs::path(cfg.reports_dir) / "trades.csv").string());
     report.writeEquityCurve((fs::path(cfg.reports_dir) / "equity_curve.csv").string());
     report.writeReport((fs::path(cfg.reports_dir) / "report.txt").string());
+    report.writeSessionJson((fs::path(cfg.reports_dir) / "session.json").string(),
+                            cfg.symbol_filter.empty() ? "backtest" : cfg.symbol_filter);
     std::cout << "Reports written to " << cfg.reports_dir << "/\n";
     return 0;
 }
@@ -309,7 +325,7 @@ int main(int argc, char* argv[]) {
     auto [strategy, strategy_params] = createStrategy(cfg);
     if (!strategy) {
         std::cerr << "Unknown strategy: " << cfg.strategy_name << "\n";
-        std::cerr << "Available: sma_crossover, ctm, orb\n";
+        std::cerr << "Available: sma_crossover, ctm, orb, one_point_oh\n";
         return 1;
     }
 
