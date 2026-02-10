@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backtest Chart Viewer</title>
+  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #131722; color: #d1d4dc; }
+    .toolbar { padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a2e39; }
+    .toolbar label { cursor: pointer; padding: 8px 14px; background: #2962ff; color: #fff; border-radius: 4px; font-size: 14px; }
+    .toolbar label:hover { background: #1e53e5; }
+    .toolbar input[type=file] { display: none; }
+    .toolbar .info { font-size: 13px; color: #787b86; }
+    .toolbar input[type=number] { width: 48px; padding: 4px; background: #2a2e39; color: #d1d4dc; border: 1px solid #363a45; border-radius: 4px; }
+    .toolbar .line-label { font-size: 12px; color: #787b86; }
+    #chart { width: 100%; height: calc(100vh - 52px); }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <label for="file">Load session.json</label>
+    <input type="file" id="file" accept=".json">
+    <span class="line-label">Line lookback:</span>
+    <input type="number" id="lookback" min="5" max="100" value="20" title="Bars for best-fit lines (OnePointOh)">
+    <span class="info" id="info">Run a backtest, then select reports/session.json to view price, trades, and lines.</span>
+  </div>
+  <div id="chart"></div>
+
+  <script>
+    function parseTime(t) {
+      if (!t) return null;
+      const s = String(t).trim().replace('T', ' ').replace(/_/g, ':');
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000);
+    }
+
+    // Linear regression on y[0..n-1] with x = 0..n-1. Returns value at x = n-1 (current bar).
+    function fitLineValue(y, n) {
+      if (n < 2) return n === 1 ? y[0] : null;
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+      for (let i = 0; i < n; i++) {
+        sumX += i;
+        sumY += y[i];
+        sumXY += i * y[i];
+        sumXX += i * i;
+      }
+      const denom = n * sumXX - sumX * sumX;
+      if (Math.abs(denom) < 1e-20) return sumY / n;
+      const slope = (n * sumXY - sumX * sumY) / denom;
+      const intercept = (sumY - slope * sumX) / n;
+      return intercept + slope * (n - 1);
+    }
+
+    function buildChart(container, session) {
+      if (window.chartInstance) {
+        window.chartInstance.remove();
+        window.chartInstance = null;
+      }
+
+      const bars = session.bars || [];
+      const trades = session.trades || [];
+      if (bars.length === 0) {
+        document.getElementById('info').textContent = 'No bars in session.';
+        return;
+      }
+
+      const candleData = [];
+      for (const b of bars) {
+        const time = parseTime(b.t);
+        if (time == null) continue;
+        candleData.push({
+          time: time,
+          open: Number(b.o),
+          high: Number(b.h),
+          low: Number(b.l),
+          close: Number(b.c)
+        });
+      }
+      if (candleData.length === 0) {
+        document.getElementById('info').textContent = 'Could not parse bar times.';
+        return;
+      }
+
+      // OnePointOh-style lines of best fit (compute before creating series)
+      let lookback = parseInt(document.getElementById('lookback').value, 10) || 20;
+      if (lookback < 5) lookback = 5;
+      if (lookback > 100) lookback = 100;
+      const parseLookbackFromParams = (p) => {
+        if (!p || typeof p !== 'string') return null;
+        const m = p.match(/lookback=(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
+      };
+      const paramsLookback = parseLookbackFromParams(session.params);
+      if (paramsLookback != null) lookback = paramsLookback;
+
+      const lineHighData = [];
+      const lineLowData = [];
+      if (bars.length >= lookback) {
+        for (let i = lookback - 1; i < bars.length; i++) {
+          const time = parseTime(bars[i].t);
+          if (time == null) continue;
+          const highs = [];
+          const lows = [];
+          for (let k = 0; k < lookback; k++) {
+            highs.push(Number(bars[i - lookback + 1 + k].h));
+            lows.push(Number(bars[i - lookback + 1 + k].l));
+          }
+          const vHigh = fitLineValue(highs, lookback);
+          const vLow = fitLineValue(lows, lookback);
+          if (vHigh != null) lineHighData.push({ time, value: vHigh });
+          if (vLow != null) lineLowData.push({ time, value: vLow });
+        }
+      }
+
+      const chart = LightweightCharts.createChart(container, {
+        layout: { background: { type: 'solid', color: '#131722' }, textColor: '#d1d4dc' },
+        grid: { vertLines: { color: '#2a2e39' }, horzLines: { color: '#2a2e39' } },
+        rightPriceScale: { borderColor: '#2a2e39', scaleMargins: { top: 0.1, bottom: 0.1 } },
+        timeScale: { borderColor: '#2a2e39', timeVisible: true, secondsVisible: true }
+      });
+
+      // Add line series first so they share the right price scale with candles
+      if (lineHighData.length > 0) {
+        const resistanceSeries = chart.addLineSeries({
+          color: '#f68410',
+          lineWidth: 2,
+          priceScaleId: 'right',
+          title: 'Resistance (highs)',
+          lastValueVisible: true,
+          priceLineVisible: true
+        });
+        resistanceSeries.setData(lineHighData);
+      }
+      if (lineLowData.length > 0) {
+        const supportSeries = chart.addLineSeries({
+          color: '#2196f3',
+          lineWidth: 2,
+          priceScaleId: 'right',
+          title: 'Support (lows)',
+          lastValueVisible: true,
+          priceLineVisible: true
+        });
+        supportSeries.setData(lineLowData);
+      }
+
+      const candlestickSeries = chart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        priceScaleId: 'right'
+      });
+      candlestickSeries.setData(candleData);
+
+      const markers = [];
+      for (let i = 0; i < trades.length; i++) {
+        const t = trades[i];
+        const entryTime = parseTime(t.entry_time);
+        const exitTime = parseTime(t.exit_time);
+        const isLong = (t.side || '').toLowerCase() === 'long';
+        const color = isLong ? '#26a69a' : '#ef5350';
+        if (entryTime != null) {
+          markers.push({
+            time: entryTime,
+            position: isLong ? 'belowBar' : 'aboveBar',
+            color: color,
+            shape: isLong ? 'arrowUp' : 'arrowDown',
+            text: 'Entry ' + (i + 1)
+          });
+        }
+        if (exitTime != null) {
+          markers.push({
+            time: exitTime,
+            position: isLong ? 'aboveBar' : 'belowBar',
+            color: '#787b86',
+            shape: 'circle',
+            text: 'Exit ' + (i + 1) + (t.pnl != null ? ' (' + Number(t.pnl).toFixed(2) + ')' : '')
+          });
+        }
+      }
+      if (markers.length > 0) candlestickSeries.setMarkers(markers);
+
+      chart.timeScale().fitContent();
+      window.chartInstance = chart;
+
+      const lineInfo = bars.length >= lookback ? ' Lines: resistance (orange), support (blue), lookback=' + lookback + '.' : '';
+      document.getElementById('info').textContent =
+        (session.symbol || '') + ' | ' + (session.strategy || '') + ' | ' +
+        bars.length + ' bars, ' + trades.length + ' trades.' + lineInfo + ' Scroll: drag. Zoom: mouse wheel.';
+    }
+
+    document.getElementById('file').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = function () {
+        try {
+          const session = JSON.parse(r.result);
+          buildChart(document.getElementById('chart'), session);
+        } catch (err) {
+          document.getElementById('info').textContent = 'Invalid JSON: ' + err.message;
+        }
+      };
+      r.readAsText(file);
+    });
+  </script>
+</body>
+</html>

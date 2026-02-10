@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_dir: build
+          - os: windows-latest
+            build_dir: build
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (CMake)
+        run: cmake -B ${{ matrix.build_dir }} -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+
+      - name: Build
+        run: cmake --build ${{ matrix.build_dir }} --config Release
+        shell: bash
+
+      - name: Run tests (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: ctest --test-dir ${{ matrix.build_dir }} --output-on-failure
+
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: ctest --test-dir ${{ matrix.build_dir }} -C Release --output-on-failure
+        shell: bash
