@@ -1,14 +1,16 @@
 Backtest Report
 ================
 
-Strategy: ctm (long=9/21 short=9/333)
+*** Backtest stopped: no more equity ***
+
+Strategy: experiment (lookback=20 stop_lookback=20 1:3.000000 R:R)
 
 Initial equity:  100000.00
-Final equity:   100000.00
-Total return:   0.00%
-Max drawdown:   0.00%
-Sharpe ratio:   0.000
-Closed trades:  0
-Winning trades: 0
-Win rate:       0.00%
-Avg trade P&L:  0.00
+Final equity:   -15622.00
+Total return:   -115.62%
+Max drawdown:   100.00%
+Sharpe ratio:   -2.516
+Closed trades:  5
+Winning trades: 3
+Win rate:       60.00%
+Avg trade P&L:  17.00

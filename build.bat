@@ -15,9 +15,11 @@ echo Compiling...
 %CXX% %CFLAGS% -c ../strategies/example_sma_strategy.cpp -o example_sma_strategy.o
 %CXX% %CFLAGS% -c ../strategies/ctm_strategy_simple.cpp -o ctm_strategy_simple.o
 %CXX% %CFLAGS% -c ../strategies/orb_strategy.cpp -o orb_strategy.o
+%CXX% %CFLAGS% -c ../strategies/one_point_oh_strategy.cpp -o one_point_oh_strategy.o
+%CXX% %CFLAGS% -c ../strategies/experiment_strategy.cpp -o experiment_strategy.o
 
 echo Linking...
-%CXX% -o backtester.exe main.o data_source.o simulator.o backtester.o report.o example_sma_strategy.o ctm_strategy_simple.o orb_strategy.o
+%CXX% -o backtester.exe main.o data_source.o simulator.o backtester.o report.o example_sma_strategy.o ctm_strategy_simple.o orb_strategy.o one_point_oh_strategy.o experiment_strategy.o
 
 %CXX% %CFLAGS% -c ../tests/test_runner.cpp -o test_runner.o
 %CXX% -o test_runner.exe test_runner.o data_source.o simulator.o

@@ -1,18 +1,17 @@
 Backtest all symbols
-Strategy: orb (session=9:30 15% equity EOD exit)
+Strategy: one_point_oh (lookback=20 stop_lookback=20 1:3.000000 R:R)
 
     Symbol    Return %   MaxDD %  Trades  Final equity              Stopped
 ----------------------------------------------------------------------------
-      nqh6      202.40     31.31      40     302399.25                     -
- nqh6-nqm6       46.36     14.83       7     146359.85                     -
-      nqm6      207.68     22.65      18     307678.25                     -
-      nqu5       95.85     36.78      20     195849.75                     -
- nqu5-nqh6        0.00      0.00       0     100000.00                     -
- nqu5-nqz5      -44.86     58.16      13      55135.25                     -
-      nqu6        0.00      0.00       0     100000.00                     -
-      nqz5     -122.48    100.00      23     -22478.00        no more equity
- nqz5-nqh6      -81.89     86.26      20      18110.90                     -
- nqz5-nqm6        0.00      0.00       0     100000.00                     -
+      nqh6     -123.96    100.00      49     -23958.25        no more equity
+ nqh6-nqm6       14.77     72.16      59     114767.00                     -
+      nqm6       60.96     97.55     287     160963.00                     -
+      nqu5     -111.93    100.00     613     -11926.25        no more equity
+ nqu5-nqh6       31.33      0.29       2     131332.10                     -
+ nqu5-nqz5      -83.66     99.69     282      16338.85                     -
+      nqz5     -122.96    100.00     144     -22956.00        no more equity
+ nqz5-nqh6       25.67     83.34      58     125668.50                     -
+ nqz5-nqm6      128.42     13.18       8     228420.35                     -
 ----------------------------------------------------------------------------
-  Combined       30.31               141    1303055.25
-  (Combined: 10 accounts, 1000000 initial -> 1303055 final)
+  Combined      -20.15              1502     718649.30
+  (Combined: 9 accounts, 900000 initial -> 718649 final)
